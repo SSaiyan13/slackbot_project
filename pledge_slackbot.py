@@ -13,11 +13,17 @@ client = WebClient(token=SLACK_BOT_TOKEN)
 # Initialize Flask app
 app = Flask(__name__)
 
-# Route to handle Slack events (Slash Command requests)
+# ✅ Route to handle Slack events (handles event verification & commands)
 @app.route("/slack/events", methods=["POST"])
 def handle_slack_event():
-    data = request.form
-    command_text = data.get("text", "")
+    data = request.get_json(force=True)  # 🔹 Ensure JSON is received properly
+
+    # ✅ Handle Slack URL verification
+    if "challenge" in data:
+        return jsonify({"challenge": data["challenge"]})
+
+    # ✅ Extract command text (for /review command)
+    command_text = data.get("event", {}).get("text", "")
     
     if command_text:
         parts = command_text.split(" ", 2)
@@ -39,6 +45,7 @@ def handle_slack_event():
 
     return jsonify({"text": "Please provide a username, comment type, and comment."})
 
+# ✅ Fetch User ID from Slack
 def get_user_id_by_name(username):
     try:
         response = client.users_list()
@@ -50,6 +57,7 @@ def get_user_id_by_name(username):
         print(f"Error fetching user list: {e.response['error']}")
         return None
 
+# ✅ Send Direct Message
 def send_direct_message(user_id, comment, comment_type):
     try:
         message = f"You have a new {comment_type} review comment: {comment}"
@@ -57,10 +65,12 @@ def send_direct_message(user_id, comment, comment_type):
     except SlackApiError as e:
         print(f"Error sending message: {e.response['error']}")
 
+# ✅ Test Route to Check if Server is Running
 @app.route("/", methods=["GET"])
 def test_server():
-    return jsonify({"text": "Server is running!"})
+    return jsonify({"text": "Slack bot is running on Render!"})
 
+# ✅ Run Flask with Dynamic Port for Render
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 3000))
+    port = int(os.environ.get("PORT", 10000))  # Render uses dynamic ports above 10000
     app.run(host="0.0.0.0", port=port)
